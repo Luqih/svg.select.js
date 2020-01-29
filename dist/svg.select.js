@@ -1,425 +1,249 @@
 /*!
 * svg.select.js - An extension of svg.js which allows to select elements with mouse
-* @version 3.0.1
+* @version 4.0.0
 * https://github.com/svgdotjs/svg.select.js
 *
-* @copyright Ulrich-Matthias Schäfer
+* @copyright undefined
 * @license MIT
+*
+* BUILT: Wed Jan 29 2020 14:26:34 GMT-0300 (Argentina Standard Time)
 */;
-export default function(SVG) {
-"use strict";
-
-function SelectHandler(el) {
-
-    this.el = el;
-    el.remember('_selectHandler', this);
-    this.pointSelection = {isSelected: false};
-    this.rectSelection = {isSelected: false};
-
-    // helper list with position settings of each type of point
-    this.pointsList = {
-      lt: [ 0, 0 ],
-      rt: [ 'width', 0 ],
-      rb: [ 'width', 'height' ],
-      lb: [ 0, 'height' ],
-      t: [ 'width', 0 ],
-      r: [ 'width', 'height' ],
-      b: [ 'width', 'height' ],
-      l: [ 0, 'height' ]
-    };
-
-    // helper function to get point coordinates based on settings above and an object (bbox in our case)
-    this.pointCoord = function (setting, object, isPointCentered) {
-      var coord = typeof setting !== 'string' ? setting : object[setting];
-      // Top, bottom, right and left points are placed in the center of element width/height
-      return isPointCentered ? coord / 2 : coord
-    }
-
-    this.pointCoords = function (point, object) {
-      var settings = this.pointsList[point];
-
-      return {
-        x: this.pointCoord(settings[0], object, (point === 't' || point === 'b')),
-        y: this.pointCoord(settings[1], object, (point === 'r' || point === 'l'))
-      }
-    }
+function _classCallCheck(instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
 }
 
-SelectHandler.prototype.init = function (value, options) {
+function _defineProperties(target, props) {
+  for (var i = 0; i < props.length; i++) {
+    var descriptor = props[i];
+    descriptor.enumerable = descriptor.enumerable || false;
+    descriptor.configurable = true;
+    if ("value" in descriptor) descriptor.writable = true;
+    Object.defineProperty(target, descriptor.key, descriptor);
+  }
+}
 
-    var bbox = this.el.bbox();
-    this.options = {};
+function _createClass(Constructor, protoProps, staticProps) {
+  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+  if (staticProps) _defineProperties(Constructor, staticProps);
+  return Constructor;
+}
 
-    // store defaults list of points in order to verify users config
-    var points = this.el.selectize.defaults.points;
-
-    // Merging the defaults and the options-object together
-    for (var i in this.el.selectize.defaults) {
-        this.options[i] = this.el.selectize.defaults[i];
-        if (options[i] !== undefined) {
-            this.options[i] = options[i];
-        }
-    }
-
-    // prepare & validate list of points to be added (or excluded)
-    var pointsLists = ['points', 'pointsExclude'];
-
-    for (var i in pointsLists) {
-      var option = this.options[pointsLists[i]];
-
-      if (typeof option === 'string') {
-        if (option.length > 0) {
-          // if set as comma separated string list => convert it into an array
-          option = option.split(/\s*,\s*/i);
-        } else {
-          option = [];
-        }
-      } else if (typeof option === 'boolean' && pointsLists[i] === 'points') {
-        // this is not needed, but let's have it for legacy support
-        option = option ? points : [];
-      }
-
-      this.options[pointsLists[i]] = option;
-    }
-
-    // intersect correct all points options with users config (exclude unwanted points)
-    // ES5 -> NO arrow functions nor Array.includes()
-    this.options.points = [ points, this.options.points ].reduce(
-      function (a, b) {
-        return a.filter(
-          function (c) {
-            return b.indexOf(c) > -1;
-          }
-        )
-      }
-    );
-
-    // exclude pointsExclude, if wanted
-    this.options.points = [ this.options.points, this.options.pointsExclude ].reduce(
-      function (a, b) {
-        return a.filter(
-          function (c) {
-            return b.indexOf(c) < 0;
-          }
-        )
-      }
-    );
-
-    this.parent = this.el.parent();
-    this.nested = (this.nested || this.parent.group());
-    this.nested.matrix(new SVG.Matrix(this.el).translate(bbox.x, bbox.y));
-
-    // When deepSelect is enabled and the element is a line/polyline/polygon, draw only points for moving
-    if (this.options.deepSelect && ['line', 'polyline', 'polygon'].indexOf(this.el.type) !== -1) {
-        this.selectPoints(value);
-    } else {
-        this.selectRect(value);
-    }
-
-    this.observe();
-    this.cleanup();
-
-};
-
-SelectHandler.prototype.selectPoints = function (value) {
-
-    this.pointSelection.isSelected = value;
-
-    // When set is already there we dont have to create one
-    if (this.pointSelection.set) {
-        return this;
-    }
-
-    // Create our set of elements
-    this.pointSelection.set = this.parent.set();
-    // draw the points and mark the element as selected
-    this.drawPoints();
-
-    return this;
-
-};
-
-// create the point-array which contains the 2 points of a line or simply the points-array of polyline/polygon
-SelectHandler.prototype.getPointArray = function () {
-    var bbox = this.el.bbox();
-
-    return this.el.array().valueOf().map(function (el) {
-        return [el[0] - bbox.x, el[1] - bbox.y];
+function getMoseDownFunc(eventName, el) {
+  return function (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    var x = ev.pageX || ev.touches[0].pageX;
+    var y = ev.pageY || ev.touches[0].pageY;
+    console.log(eventName, {
+      x: x,
+      y: y,
+      event: ev
     });
-};
-
-// Draws a points
-SelectHandler.prototype.drawPoints = function () {
-
-    var _this = this, array = this.getPointArray();
-
-    // go through the array of points
-    for (var i = 0, len = array.length; i < len; ++i) {
-
-        var curriedEvent = (function (k) {
-            return function (ev) {
-                ev = ev || window.event;
-                ev.preventDefault ? ev.preventDefault() : ev.returnValue = false;
-                ev.stopPropagation();
-
-                var x = ev.pageX || ev.touches[0].pageX;
-                var y = ev.pageY || ev.touches[0].pageY;
-                _this.el.fire('point', {x: x, y: y, i: k, event: ev});
-            };
-        })(i);
-
-        // add every point to the set
-        // add css-classes and a touchstart-event which fires our event for moving points
-        var point = this.drawPoint(array[i][0], array[i][1])
-                        .addClass(this.options.classPoints)
-                        .addClass(this.options.classPoints + '_point')
-                        .on('touchstart', curriedEvent)
-                        .on('mousedown', curriedEvent)
-        this.pointSelection.set.add(point);
-    }
-};
-
-// The function to draw single point
-SelectHandler.prototype.drawPoint = function (cx, cy) {
-    var pointType = this.options.pointType;
-
-    switch (pointType) {
-        case 'circle':
-            return this.drawCircle(cx, cy);
-        case 'rect':
-            return this.drawRect(cx, cy);
-        default:
-            if (typeof pointType === 'function') {
-                return pointType.call(this, cx, cy);
-            }
-
-            throw new Error('Unknown ' + pointType + ' point type!');
-    }
-};
-
-// The function to draw the circle point
-SelectHandler.prototype.drawCircle = function (cx, cy) {
-    return this.nested.circle(this.options.pointSize)
-    .stroke(this.options.pointStroke)
-    .fill(this.options.pointFill)
-    .center(cx, cy);
-};
-
-// The function to draw the rect point
-SelectHandler.prototype.drawRect = function (cx, cy) {
-    return this.nested.rect(this.options.pointSize, this.options.pointSize)
-        .stroke(this.options.pointStroke)
-        .fill(this.options.pointFill)
-        .center(cx, cy);
-};
-
-// every time a point is moved, we have to update the positions of our point
-SelectHandler.prototype.updatePointSelection = function () {
-    var array = this.getPointArray();
-
-    this.pointSelection.set.each(function (i) {
-        if (this.cx() === array[i][0] && this.cy() === array[i][1]) {
-            return;
-        }
-        this.center(array[i][0], array[i][1]);
+    el.fire(eventName, {
+      x: x,
+      y: y,
+      event: ev
     });
-};
+  };
+}
 
-SelectHandler.prototype.updateRectSelection = function () {
-    var _this = this, bbox = this.el.bbox();
+function allowSelection(svgJs) {
+  var Element = svgJs.Element,
+      extend = svgJs.extend,
+      G = svgJs.G,
+      Point = svgJs.Point;
 
-    this.rectSelection.set.get(0).attr({
-        width: bbox.width,
-        height: bbox.height
-    });
+  var SelectHandler =
+  /*#__PURE__*/
+  function () {
+    function SelectHandler(el) {
+      _classCallCheck(this, SelectHandler);
 
-    // set.get(1) is always in the upper left corner. no need to move it
-    if (this.options.points.length) {
-      this.options.points.map(function (point, index) {
-        var coords = _this.pointCoords(point, bbox);
-
-        _this.rectSelection.set.get(index + 1).center(coords.x, coords.y);
-      });
+      console.log(el);
+      this.el = el;
+      el.remember('_selectHandler', this);
+      this.selection = new G();
+      this.order = this.getPointNames();
+      this.orginalPoints = [];
+      this.points = [];
+      this.mutationHandler = this.mutationHandler.bind(this);
+      this.observer = new window.MutationObserver(this.mutationHandler);
     }
 
-    if (this.options.rotationPoint) {
-        var length = this.rectSelection.set.length();
-
-        this.rectSelection.set.get(length - 1).center(bbox.width / 2, 20);
-    }
-};
-
-SelectHandler.prototype.selectRect = function (value) {
-
-    var _this = this, bbox = this.el.bbox();
-
-    this.rectSelection.isSelected = value;
-
-    // when set is already p
-    this.rectSelection.set = this.rectSelection.set || this.parent.set();
-
-    // helperFunction to create a mouse-down function which triggers the event specified in `eventName`
-    function getMoseDownFunc(eventName) {
-        return function (ev) {
-            ev = ev || window.event;
-            ev.preventDefault ? ev.preventDefault() : ev.returnValue = false;
-            ev.stopPropagation();
-
-            var x = ev.pageX || ev.touches[0].pageX;
-            var y = ev.pageY || ev.touches[0].pageY;
-            _this.el.fire(eventName, {x: x, y: y, event: ev});
-        };
-    }
-
-    // create the selection-rectangle and add the css-class
-    if (!this.rectSelection.set.get(0)) {
-        this.rectSelection.set.add(this.nested.rect(bbox.width, bbox.height).addClass(this.options.classRect));
-    }
-
-    // Draw Points at the edges, if enabled
-    if (this.options.points.length && this.rectSelection.set.length() < 2) {
-        var ename ="touchstart", mname = "mousedown";
-
-        this.options.points.map(function (point, index) {
-            var coords = _this.pointCoords(point, bbox);
-
-            var pointElement = _this.drawPoint(coords.x, coords.y)
-                                    .attr('class', _this.options.classPoints + '_' + point)
-                                    .on(mname, getMoseDownFunc(point))
-                                    .on(ename, getMoseDownFunc(point));
-            _this.rectSelection.set.add(pointElement);
+    _createClass(SelectHandler, [{
+      key: "init",
+      value: function init() {
+        this.mountSelection();
+        this.updatePoints();
+        this.createSelection();
+        this.createResizeHandles();
+        this.updateResizeHandles();
+        this.createRotationHandle();
+        this.updateRotationHandle();
+        this.createShearHandle();
+        this.updateShearHandle();
+        this.observer.observe(this.el.node, {
+          attributes: true
         });
+      }
+    }, {
+      key: "getPointNames",
+      value: function getPointNames() {
+        return ['lt', 't', 'rt', 'r', 'rb', 'b', 'lb', 'l', 'rot', 'shear'];
+      }
+    }, {
+      key: "active",
+      value: function active(val) {
+        // Disable selection
+        if (!val) {
+          this.selection.clear().remove();
+          this.observer.disconnect();
+          return;
+        } // Enable selection
 
-        this.rectSelection.set.each(function () {
-            this.addClass(_this.options.classPoints);
+
+        this.init();
+      }
+    }, {
+      key: "mountSelection",
+      value: function mountSelection() {
+        this.el.root().put(this.selection);
+      }
+    }, {
+      key: "createSelection",
+      value: function createSelection() {
+        // First transform all points, then draw polygon out of it
+        this.selection.polygon(this.points.slice(0, this.order.indexOf('rot')).map(function (el) {
+          return [el.x, el.y];
+        })).addClass('selection_border').fill('none');
+      }
+    }, {
+      key: "updateSelection",
+      value: function updateSelection() {
+        this.selection.get(0).plot(this.points.slice(0, this.order.indexOf('rot')).map(function (el) {
+          return [el.x, el.y];
+        }));
+      }
+    }, {
+      key: "createResizeHandles",
+      value: function createResizeHandles() {
+        var _this = this;
+
+        this.points.slice(0, this.order.indexOf('rot')).forEach(function (p, index) {
+          _this.selection.circle(10).addClass('selection_handle_' + _this.order[index]).on('mousedown.selection touchstart.selection', getMoseDownFunc(_this.order[index], _this.el));
+
+          console.log(_this.order[index], _this.el);
         });
-    }
+      }
+    }, {
+      key: "updateResizeHandles",
+      value: function updateResizeHandles() {
+        var _this2 = this;
 
-    // draw rotationPint, if enabled
-    if (this.options.rotationPoint && ((this.options.points && !this.rectSelection.set.get(9)) || (!this.options.points && !this.rectSelection.set.get(1)))) {
-
-        var curriedEvent = function (ev) {
-            ev = ev || window.event;
-            ev.preventDefault ? ev.preventDefault() : ev.returnValue = false;
-            ev.stopPropagation();
-
-            var x = ev.pageX || ev.touches[0].pageX;
-            var y = ev.pageY || ev.touches[0].pageY;
-            _this.el.fire('rot', {x: x, y: y, event: ev});
-        };
-
-        var pointElement = this.drawPoint(bbox.width / 2, 20)
-                              .attr('class', this.options.classPoints + '_rot')
-                              .on("touchstart", curriedEvent)
-                              .on("mousedown", curriedEvent);
-        this.rectSelection.set.add(pointElement);
-    }
-
-};
-
-SelectHandler.prototype.handler = function () {
-
-    var bbox = this.el.bbox();
-    this.nested.matrix(new SVG.Matrix(this.el).translate(bbox.x, bbox.y));
-
-    if (this.rectSelection.isSelected) {
-        this.updateRectSelection();
-    }
-
-    if (this.pointSelection.isSelected) {
-        this.updatePointSelection();
-    }
-
-};
-
-SelectHandler.prototype.observe = function () {
-    var _this = this;
-
-    if (MutationObserver) {
-        if (this.rectSelection.isSelected || this.pointSelection.isSelected) {
-            this.observerInst = this.observerInst || new MutationObserver(function () {
-                _this.handler();
-            });
-            this.observerInst.observe(this.el.node, {attributes: true});
-        } else {
-            try {
-                this.observerInst.disconnect();
-                delete this.observerInst;
-            } catch (e) {
-            }
-        }
-    } else {
-        this.el.off('DOMAttrModified.select');
-
-        if (this.rectSelection.isSelected || this.pointSelection.isSelected) {
-            this.el.on('DOMAttrModified.select', function () {
-                _this.handler();
-            });
-        }
-    }
-};
-
-SelectHandler.prototype.cleanup = function () {
-
-    //var _this = this;
-
-    if (!this.rectSelection.isSelected && this.rectSelection.set) {
-        // stop watching the element, remove the selection
-        this.rectSelection.set.each(function () {
-            this.remove();
+        this.points.slice(0, this.order.indexOf('rot')).forEach(function (p, index) {
+          _this2.selection.get(index + 1).center(p.x, p.y);
         });
+      }
+    }, {
+      key: "createRotationHandle",
+      value: function createRotationHandle() {
+        var handle = this.selection.group().addClass('selection_handle_rot').on('mousedown.selection touchstart.selection', getMoseDownFunc('rot', this.el));
+        handle.line();
+        handle.circle(5);
+      }
+    }, {
+      key: "updateRotationHandle",
+      value: function updateRotationHandle() {
+        var index = this.order.indexOf('rot');
+        var topPoint = this.points[this.order.indexOf('t')];
+        var rotPoint = this.points[index];
+        var group = this.selection.get(index + 1);
+        group.get(0).plot(topPoint.x, topPoint.y, rotPoint.x, rotPoint.y);
+        group.get(1).center(rotPoint.x, rotPoint.y);
+      }
+    }, {
+      key: "createShearHandle",
+      value: function createShearHandle() {
+        this.selection.rect(20, 5).addClass('selection_handle_shear').on('mousedown.selection touchstart.selection', getMoseDownFunc('shear', this.el));
+      }
+    }, {
+      key: "updateShearHandle",
+      value: function updateShearHandle() {
+        var index = this.order.indexOf('shear');
+        var shearPoint = this.points[index];
+        var shearPoint2 = this.points[index + 1];
+        this.selection.get(index + 1).move(shearPoint.x, shearPoint.y).untransform().rotate(this.el.transform('rotate'), shearPoint2.x, shearPoint2.y);
+      }
+    }, {
+      key: "updatePoints",
+      value: function updatePoints() {
+        // Transform elements bounding box into correct space
+        var parent = this.selection.parent(); // This is the matrix from the elements space to the space of the ui
+        // const fromShapeToUiMatrix = this.el.screenCTM().multiplyO(parent.screenCTM().inverseO())
 
-        this.rectSelection.set.clear();
-        delete this.rectSelection.set;
-    }
-
-    if (!this.pointSelection.isSelected && this.pointSelection.set) {
-        // Remove all points, clear the set, stop watching the element
-        this.pointSelection.set.each(function () {
-            this.remove();
+        var fromShapeToUiMatrix = parent.screenCTM().inverseO().multiplyO(this.el.screenCTM());
+        this.orginalPoints = this.getPoints();
+        this.points = this.orginalPoints.map(function (p) {
+          return p.transform(fromShapeToUiMatrix);
         });
+        this.points.map(function (p, i) {
+          return console.log(i === 0 && p);
+        });
+      }
+    }, {
+      key: "getPoints",
+      value: function getPoints() {
+        var _this$el$bbox = this.el.bbox(),
+            x = _this$el$bbox.x,
+            x2 = _this$el$bbox.x2,
+            y = _this$el$bbox.y,
+            y2 = _this$el$bbox.y2,
+            cx = _this$el$bbox.cx,
+            cy = _this$el$bbox.cy; // A collection of all the points we need to draw our ui
 
-        this.pointSelection.set.clear();
-        delete this.pointSelection.set;
-    }
 
-    if (!this.pointSelection.isSelected && !this.rectSelection.isSelected) {
-        this.nested.remove();
-        delete this.nested;
+        return [new Point(x, y), new Point(cx, y), new Point(x2, y), new Point(x2, cy), new Point(x2, y2), new Point(cx, y2), new Point(x, y2), new Point(x, cy), new Point(cx, y - 20), new Point(x2 - 20, y - 5), new Point(x2, y - 5)];
+      }
+    }, {
+      key: "mutationHandler",
+      value: function mutationHandler() {
+        this.updatePoints();
+        this.updateSelection();
+        this.updateResizeHandles();
+        this.updateRotationHandle();
+        this.updateShearHandle();
+      }
+    }]);
 
-    }
-};
+    return SelectHandler;
+  }();
 
-
-SVG.extend(SVG.Element, {
+  extend(Element, {
     // Select element with mouse
-    selectize: function (value, options) {
+    selectize: function selectize() {
+      var enabled = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
+      var selectHandler = this.remember('_selectHandler');
 
-        // Check the parameters and reassign if needed
-        if (typeof value === 'object') {
-            options = value;
-            value = true;
+      if (!selectHandler) {
+        if (enabled.prototype instanceof SelectHandler) {
+          /* eslint new-cap: ["error", { "newIsCap": false }] */
+          selectHandler = new enabled(this);
+          enabled = true;
+        } else {
+          selectHandler = new SelectHandler(this);
         }
 
-        var selectHandler = this.remember('_selectHandler') || new SelectHandler(this);
+        this.remember('_selectHandler', selectHandler);
+      }
 
-        selectHandler.init(value === undefined ? true : value, options || {});
-
-        return this;
-
+      selectHandler.active(enabled);
+      return this;
     }
-});
+  });
+  return SelectHandler;
+}
 
-SVG.Element.prototype.selectize.defaults = {
-    points: ['lt', 'rt', 'rb', 'lb', 't', 'r', 'b', 'l'],    // which points to draw, default all
-    pointsExclude: [],                       // easier option if to exclude few than rewrite all
-    classRect: 'svg_select_boundingRect',    // Css-class added to the rect
-    classPoints: 'svg_select_points',        // Css-class added to the points
-    pointSize: 7,                            // size of point
-    rotationPoint: true,                     // If true, rotation point is drawn. Needed for rotation!
-    deepSelect: false,                       // If true, moving of single points is possible (only line, polyline, polyon)
-    pointType: 'circle',                     // Point type: circle or rect, default circle
-    pointFill: "#000",                       // Point fill color
-    pointStroke: { width: 1, color: "#000" } // Point stroke properties
-};
-};
+export default allowSelection;
+//# sourceMappingURL=svg.select.js.map
