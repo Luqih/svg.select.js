@@ -6,7 +6,7 @@
 * @copyright Ulrich-Matthias Schäfer
 * @license MIT
 */;
-function(SVG) {
+export default function(SVG) {
 "use strict";
 
 function SelectHandler(el) {
