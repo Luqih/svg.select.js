@@ -6,7 +6,7 @@
 * @copyright Ulrich-Matthias Schäfer
 * @license MIT
 */;
-;(function() {
+function(SVG) {
 "use strict";
 
 function SelectHandler(el) {
@@ -422,4 +422,4 @@ SVG.Element.prototype.selectize.defaults = {
     pointFill: "#000",                       // Point fill color
     pointStroke: { width: 1, color: "#000" } // Point stroke properties
 };
-}());
+};
